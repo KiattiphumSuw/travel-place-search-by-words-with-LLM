@@ -1,5 +1,33 @@
-<html>
-    <body>
-        <p>Hello Template!</p>
-    </body>
+<!-- hello.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommendation Form</title>
+</head>
+<body>
+    <h1>Recommendation Form</h1>
+    <form id="recommendationForm">
+        <label for="query">Enter your query:</label><br>
+        <input type="text" id="query" name="query"><br><br>
+        <button type="submit">Submit</button>
+    </form>
+    <div id="response"></div>
+
+    <script>
+        document.getElementById("recommendationForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            let query = document.getElementById("query").value;
+            fetch(`/v1/nodes/Question2?query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("response").innerText = JSON.stringify(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+</body>
 </html>
