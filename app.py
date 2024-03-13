@@ -14,10 +14,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 @app.route('/')
 def hello():
-    if 'use_template' in request.args:
-        return render_template('hello.html')
-    else:
-        return 'Hello World!'
+    return render_template('hello.html')
 
 @app.route('/test', methods=['GET'])
 def test():
@@ -35,26 +32,30 @@ def get_user():
     
 @app.route('/v1/nodes/Question2', methods=['GET'])
 def get_result():
-    client = weaviate.connect_to_wcs(
-        cluster_url="xxx",
-        auth_credentials=weaviate.auth.AuthApiKey("xxx"),
-        headers={
-            "xxx"  # Replace with your inference API key
-        }
-    )
-
     try:
-        pass # Replace with your code. Close client gracefully in the finally block.
+        query = request.args.get('query')
+        if not query:
+            return make_response(jsonify({'message': 'Query parameter is missing.'}), 400)
+
+        client = weaviate.connect_to_wcs(
+            cluster_url="xx",
+            auth_credentials=weaviate.auth.AuthApiKey("xx"),
+            headers={
+                "X-OpenAI-Api-Key": "xx"
+            }
+        )
+
         questions = client.collections.get("Question2")
 
         response = questions.query.near_text(
-            query="thai food",
+            query=query,
             limit=2
         )
 
         result = response.objects[0].properties
+        client.close()
+        return make_response(jsonify({'message': result}), 200)
+    except weaviate.exceptions.WeaviateGRPCUnavailableError as e:
+        return make_response(jsonify({'message': f"Weaviate gRPC connection error: {str(e)}"}), 500)
     except Exception as e:
-        return make_response(jsonify({'message': e}), 500)
-    finally:
-        client.close()  
-    return make_response(jsonify({'message': "hello"}), 200)
+        return make_response(jsonify({'message': str(e)}), 500)
