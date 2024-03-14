@@ -52,16 +52,38 @@ def get_result():
             }
         )
 
-        questions = client.collections.get("Question2")
+        questions = client.collections.get("Review")
+        result_all = []
 
-        response = questions.query.near_text(
+        response_re = questions.query.near_text(
             query=query,
             limit=2
         )
 
-        result = response.objects[0].properties
-        client.close()
-        return make_response(jsonify({'message': result}), 200)
+        resname_review = response_re.objects[0].properties["restaurants"]
+        review_review = response_re.objects[0].properties["reviews"]
+
+        questions = client.collections.get("Question2")
+        response_des = questions.query.fetch_objects(
+        filters=wvc.query.Filter.by_property("restaurant_name").contains_any([resname_review]),
+        limit=1
+    )
+        result_des = []
+        for o in response_des.objects:
+            result_des.append(o.properties)  
+            
+        result_all.extend(result_des)
+        result_all.append(review_review)
+
+    #     response_gpt = questions.generate.near_text(
+    #     query="biology",
+    #     limit=2,
+    #     single_prompt="Explain {answer} as you might to a five-year-old."
+    # )
+
+    #     response_gpt = response_gpt.objects[0].generated  # Inspect the generated text
+            
+        return make_response(jsonify({'message': result_all}), 200)
     except weaviate.exceptions.WeaviateGRPCUnavailableError as e:
         return make_response(jsonify({'message': f"Weaviate gRPC connection error: {str(e)}"}), 500)
     except Exception as e:
