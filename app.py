@@ -9,8 +9,15 @@ from flask import Flask,request,render_template
 from flask import make_response, jsonify
 from json import loads,dumps,load
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+CLUSTER_URL = os.getenv('CLUSTER_URL')
+WEAVIATE_AuthApiKey = os.getenv('WEAVIATE_AuthApiKey')
+GPT_KEY1 = os.getenv('GPT_KEY1')
 
 @app.route('/')
 def hello():
@@ -38,10 +45,10 @@ def get_result():
             return make_response(jsonify({'message': 'Query parameter is missing.'}), 400)
 
         client = weaviate.connect_to_wcs(
-            cluster_url="xx",
-            auth_credentials=weaviate.auth.AuthApiKey("xx"),
+            cluster_url=CLUSTER_URL,
+            auth_credentials=weaviate.auth.AuthApiKey(WEAVIATE_AuthApiKey),
             headers={
-                "X-OpenAI-Api-Key": "xx"
+                "X-OpenAI-Api-Key": GPT_KEY1
             }
         )
 
