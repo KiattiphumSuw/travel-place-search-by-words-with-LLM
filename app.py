@@ -73,7 +73,7 @@ def get_result():
             result_des.append(o.properties)  
             
         result_all.extend(result_des)
-        result_all.append(review_review)
+        result_all.append({"review":review_review})
 
     #     response_gpt = questions.generate.near_text(
     #     query="biology",
