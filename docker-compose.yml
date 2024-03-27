@@ -10,7 +10,7 @@ services:
             - .:/app:ro
         command: /usr/local/bin/gunicorn -k gevent --reload --workers 10 --worker-connections 10 --access-logfile=- --pythonpath /app -b :5000 app:app
         environment: 
-            CLUSTER_URL: https://test-travelplanner-ov11dgo0.weaviate.network
+            CLUSTER_URL: https://test-travelplanner-6q7yopex.weaviate.network
 
     weaviate:
         command:
