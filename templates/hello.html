@@ -1,88 +1,136 @@
-<!-- hello.html -->
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <style>
         body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
 
-h1 {
-    text-align: center;
-}
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
 
-form {
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-}
+        h1 {
+            text-align: center;
+            color: #333;
+        }
 
-label {
-    display: block;
-    margin-bottom: 10px;
-}
+        label {
+            font-weight: bold;
+        }
 
-input[type="text"] {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-}
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
 
-button[type="submit"] {
-    width: 100%;
-    padding: 10px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
+        button[type="submit"] {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
 
-button[type="submit"]:hover {
-    background-color: #0056b3;
-}
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
 
-#response {
-    margin-top: 20px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-}
+        #response {
+            margin-top: 20px;
+        }
 
+        .jumbotron {
+            background-color: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
     </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recommendation Form</title>
 </head>
+
 <body>
-    <h1>Recommendation Form</h1>
-    <form id="recommendationForm">
-        <label for="query">Enter your query:</label><br>
-        <input type="text" id="query" name="query"><br><br>
-        <button type="submit">Submit</button>
-    </form>
-    <div id="response"></div>
+    <div class="container">
+        <h1>Recommendation Form</h1>
+        <form id="recommendationForm">
+            <label for="query">Enter your query:</label><br>
+            <input type="text" id="query" name="query"><br><br>
+            <button type="submit">Submit</button>
+        </form>
+        <div id="response"></div>
+    </div>
 
     <script>
-        document.getElementById("recommendationForm").addEventListener("submit", function(event) {
+        document.getElementById("recommendationForm").addEventListener("submit", function (event) {
             event.preventDefault();
             let query = document.getElementById("query").value;
             fetch(`/v1/nodes/travelPlanner?query=${query}`)
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById("response").innerText = JSON.stringify(data.message, null, "\t");
+                    const responseContainer = document.getElementById("response");
+                    responseContainer.innerText = ''; // Clear previous response
+                    Object.entries(data.message).forEach(([place, info]) => {
+                        const jumbotron = createJumbotron(place, info['Description'], info['People also reviews']);
+                        responseContainer.appendChild(jumbotron);
+                    });
                 })
                 .catch(error => {
                     console.error('Error:', error);
                 });
         });
+
+        // Function to create jumbotron card
+        function createJumbotron(place, description, reviews) {
+            const jumbotron = document.createElement('div');
+            jumbotron.classList.add('jumbotron');
+
+            const placeName = document.createElement('h2');
+            placeName.classList.add('place-name');
+            placeName.textContent = place;
+
+            const placeDescription = document.createElement('p');
+            placeDescription.classList.add('place-description');
+            placeDescription.textContent = `${description.about}`;
+
+            const placeTag = document.createElement('p');
+            placeTag.classList.add('place-tags');
+            placeTag.textContent = `tags: ${description.tags}`;
+
+            const reviewsElement = document.createElement('div');
+            reviewsElement.classList.add('reviews');
+            reviewsElement.textContent = 'People also reviewed: ';
+            reviews.forEach(review => {
+                const reviewParagraph = document.createElement('p');
+                reviewParagraph.textContent = '- ' + review;
+                reviewsElement.appendChild(reviewParagraph);
+            });
+
+            jumbotron.appendChild(placeName);
+            jumbotron.appendChild(placeDescription);
+            jumbotron.appendChild(placeTag);
+            jumbotron.appendChild(reviewsElement);
+
+            return jumbotron;
+        }
     </script>
 </body>
+
 </html>

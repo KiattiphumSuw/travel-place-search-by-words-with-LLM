@@ -3,3 +3,4 @@ gunicorn>=19.7.0
 gevent>=1.4
 weaviate-client>=3.23.0
 python-dotenv>=1.0.0
+pysentimiento>=0.7.3
