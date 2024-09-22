@@ -61,44 +61,100 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-top: 20px;
+        }
+
+        #activities, #accommodations {
+            margin-top: 20px;
+        }
     </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recommendation Form</title>
+    <title>Recommendation & QA Form</title>
 </head>
 
 <body>
     <div class="container">
-        <h1>Recommendation Form</h1>
+        <h1>Recommendation & QA Form</h1>
+
+        <!-- Form for Recommendation -->
         <form id="recommendationForm">
-            <label for="query">Enter your query:</label><br>
-            <input type="text" id="query" name="query"><br><br>
-            <button type="submit">Submit</button>
+            <label for="recommendQuery">Enter your recommendation query:</label><br>
+            <input type="text" id="recommendQuery" name="recommendQuery"><br><br>
+            <button type="submit">Get Recommendation</button>
         </form>
-        <div id="response"></div>
+
+        <!-- Form for QA -->
+        <form id="qaForm" style="margin-top: 20px;">
+            <label for="qaQuery">Enter your QA query:</label><br>
+            <input type="text" id="qaQuery" name="qaQuery"><br><br>
+            <button type="submit">Ask Question</button>
+        </form>
+
+        <div id="response">
+            <h2 class="section-title">Activities</h2>
+            <div id="activities"></div>
+            <h2 class="section-title">Accommodations</h2>
+            <div id="accommodations"></div>
+        </div>
     </div>
 
     <script>
+        // Handle Recommendation form submission
         document.getElementById("recommendationForm").addEventListener("submit", function (event) {
             event.preventDefault();
-            let query = document.getElementById("query").value;
-            fetch(`/v1/nodes/travelPlanner?query=${query}`)
+            let query = document.getElementById("recommendQuery").value;
+            fetch(`/v1/nodes/recommend?query=${query}`)
                 .then(response => response.json())
                 .then(data => {
-                    const responseContainer = document.getElementById("response");
-                    responseContainer.innerText = ''; // Clear previous response
-                    Object.entries(data.message).forEach(([place, info]) => {
-                        const jumbotron = createJumbotron(place, info['Description'], info['People also reviews']);
-                        responseContainer.appendChild(jumbotron);
-                    });
+                    console.log(data);
+                    displayResults(data.message);
                 })
                 .catch(error => {
                     console.error('Error:', error);
                 });
         });
 
+        // Handle QA form submission
+        document.getElementById("qaForm").addEventListener("submit", function (event) {
+            event.preventDefault();
+            let query = document.getElementById("qaQuery").value;
+            fetch(`/v1/nodes/QA?query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayResults(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        });
+
+        // Function to display the results in the HTML
+        function displayResults(data) {
+            const activityContainer = document.getElementById("activities");
+            const accommodationContainer = document.getElementById("accommodations");
+
+            activityContainer.innerHTML = ''; // Clear previous activity results
+            accommodationContainer.innerHTML = ''; // Clear previous accommodation results
+
+            // Display Activity results
+            Object.entries(data.activities).forEach(([place, info]) => {
+                const jumbotron = createJumbotron(place, info['Description'], info['People also reviews']);
+                activityContainer.appendChild(jumbotron);
+            });
+
+            // Display Accommodation results
+            Object.entries(data.accommodations).forEach(([place, info]) => {
+                const jumbotron = createJumbotron(place, info['Description'], info['People also reviews']);
+                accommodationContainer.appendChild(jumbotron);
+            });
+        }
+
         // Function to create jumbotron card
-        function createJumbotron(place, description, reviews) {
+       function createJumbotron(place, description, reviews) {
             const jumbotron = document.createElement('div');
             jumbotron.classList.add('jumbotron');
 
@@ -108,28 +164,39 @@
 
             const placeDescription = document.createElement('p');
             placeDescription.classList.add('place-description');
-            placeDescription.textContent = `${description.about}`;
-
-            const placeTag = document.createElement('p');
-            placeTag.classList.add('place-tags');
-            placeTag.textContent = `tags: ${description.tags}`;
+            placeDescription.textContent = description;
 
             const reviewsElement = document.createElement('div');
             reviewsElement.classList.add('reviews');
-            reviewsElement.textContent = 'People also reviewed: ';
-            reviews.forEach(review => {
-                const reviewParagraph = document.createElement('p');
-                reviewParagraph.textContent = '- ' + review;
-                reviewsElement.appendChild(reviewParagraph);
-            });
+            reviewsElement.textContent = 'People also reviewed:';
+
+            // Ensure `reviews` is defined and not null before processing
+            if (reviews === undefined || reviews === null) {
+                const noReviewMessage = document.createElement('p');
+                noReviewMessage.textContent = 'No reviews available.';
+                reviewsElement.appendChild(noReviewMessage);
+            } else if (Array.isArray(reviews[0])) {
+                reviews[0].forEach(review => {
+                    const reviewParagraph = document.createElement('p');
+                    reviewParagraph.textContent = '- ' + review;
+                    reviewsElement.appendChild(reviewParagraph);
+                });
+            } else if (reviews.length > 0) {
+                // Handle case where reviews is not an array of arrays
+                reviews.forEach(review => {
+                    const reviewParagraph = document.createElement('p');
+                    reviewParagraph.textContent = '- ' + review;
+                    reviewsElement.appendChild(reviewParagraph);
+                });
+            }
 
             jumbotron.appendChild(placeName);
             jumbotron.appendChild(placeDescription);
-            jumbotron.appendChild(placeTag);
             jumbotron.appendChild(reviewsElement);
 
             return jumbotron;
         }
+        
     </script>
 </body>
 
