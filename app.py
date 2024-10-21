@@ -4,15 +4,19 @@ import weaviate.classes as wvc
 from dotenv import load_dotenv
 from flask import Flask, jsonify, make_response, render_template, request
 from weaviate.classes.init import Auth
+from intent_chatbot import Intent_Model, Answer_Model
+from weaviate.classes.query import Rerank, MetadataQuery
+
 
 load_dotenv()
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-GPT_KEY1 = os.getenv("GPT_KEY1")
-headers = {"X-OpenAI-Api-Key": GPT_KEY1}
-weaviate_url = os.getenv("CLUSTER_URL")
-weaviate_api_key = os.getenv("WEAVIATE_AuthApiKey")
+GPT_KEY1 = os.getenv("OPENAI_APIKEY")
+COHERE_KEY = os.getenv("COHERE_KEY")
+headers = {"X-OpenAI-Api-Key": GPT_KEY1, "X-Cohere-Api-Key": COHERE_KEY}
+weaviate_url = os.getenv("WEAVIATE_URL")
+weaviate_api_key = os.getenv("WEAVIATE_API_KEY")
 client = weaviate.connect_to_weaviate_cloud(
     cluster_url=weaviate_url,
     auth_credentials=Auth.api_key(weaviate_api_key),
@@ -40,91 +44,8 @@ def get_user():
     except Exception as e:
         return make_response(jsonify({"message": e}), 500)
 
-
-@app.route("/v1/nodes/recommend", methods=["GET"])
-def get_recommend():
-    query = request.args.get("query")
-    result_all = {"activities": {}, "accommodations": {}}
-    print(query)
-    try:
-        # Query for Activity recommendations
-        activity_response = client.graphql_raw_query(
-            f"""
-            {{
-                Get {{
-                    Activity_Embedded(
-                        nearText: {{
-                            concepts: ["{query}"]
-                        }},
-                        limit: 5
-                    ) {{
-                        activity_name
-                        about_and_tags
-                        reviews
-                    }}
-                }}
-            }}
-            """
-        )
-        # print(activity_response.__dict__["get"]["Activity_Embedded"])
-        for activity in activity_response.__dict__["get"]["Activity_Embedded"]:
-            activity_name = activity.get("activity_name", "Unknown Activity")
-            about_and_tags = activity.get("about_and_tags", "Description not available")
-            reviews = activity.get("reviews", [])
-            result_all["activities"][activity_name] = {
-                "Description": about_and_tags,
-                "People also reviews": reviews if reviews else ["No reviews available"],
-            }
-        # print(result_all)
-
-        # Query for Accommodation recommendations
-        accommodation_response = client.graphql_raw_query(
-            f"""
-            {{
-                Get {{
-                    Accommodation_Embedded(
-                        nearText: {{
-                            concepts: ["{query}"]
-                        }},
-                        limit: 5
-                    ) {{
-                        accommodation_name
-                        about_and_tags
-                        reviews
-                    }}
-                }}
-            }}
-            """
-        )
-
-        # Processing accommodation response
-        for accommodation in accommodation_response.__dict__["get"][
-            "Accommodation_Embedded"
-        ]:
-            accommodation_name = accommodation.get(
-                "accommodation_name", "Unknown accommodation"
-            )
-            about_and_tags = accommodation.get(
-                "about_and_tags", "Description not available"
-            )
-            reviews = accommodation.get("reviews", [])
-            result_all["accommodations"][accommodation_name] = {
-                "Description": about_and_tags,
-                "People also reviews": reviews if reviews else ["No reviews available"],
-            }
-
-        return make_response(jsonify({"message": result_all}), 200)
-
-    except weaviate.exceptions.WeaviateGRPCUnavailableError as e:
-        return make_response(
-            jsonify({"message": f"Weaviate gRPC connection error: {str(e)}"}), 500
-        )
-    except Exception as e:
-        return make_response(jsonify({"message": str(e)}), 500)
-
-
-@app.route("/v1/nodes/QA", methods=["GET"])
-def get_QA():
+    # @app.route("/v1/nodes/QA", methods=["GET"])
+    # def get_QA():
     query = request.args.get("query")
     result_all = {"activities": {}, "accommodations": {}}
 
@@ -202,7 +123,209 @@ def get_QA():
         return make_response(jsonify({"message": str(e)}), 500)
 
 
+@app.route("/classify-intent", methods=["POST"])
+def classify_intent():
+    try:
+        data = request.get_json()
+        query = data.get("query")
+        print(query)
+        if not query:
+            return jsonify({"error": "No query provided"}), 400
+
+        # Classify intent
+        intent_result = intent_model.classify_intent(query)
+        print(intent_result)
+        # If the intent is "Recommended", get recommendations
+        if "Recommended" in intent_result:
+            print("Recommended")
+            return get_recommend(query)
+        else:
+            print("Not recommended")
+            return get_answer(query)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def get_answer(query):
+    try:
+        # Classify intent
+        result_all = {"etc": {}}
+        answer_result = answer_model.classify_intent(query)
+        result_all["etc"][query] = answer_result
+        return make_response(jsonify({"message": result_all}), 200)
+
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+
+
+# def get_recommend(query):
+#     result_all = {"activities": {}, "accommodations": {}}
+
+#     try:
+#         # Query for Activity recommendations
+#         activity_response = client.graphql_raw_query(
+#             f"""
+#             {{
+#                 Get {{
+#                     Activity_Embedded(
+#                         hybrid: {{
+#                             query: "{query}"
+#                         }},
+#                         limit: 3
+#                     ) {{
+#                         activity_name
+#                         about_and_tags
+#                         reviews
+#                         _additional {{
+#                             distance
+#                             rerank(
+#                                 property: "activity_name"
+#                                 query: "{query}"
+#                             ) {{
+#                                 score
+#                             }}
+#                         }}
+#                     }}
+#                 }}
+#             }}
+#             """
+#         )
+
+#         for activity in activity_response.__dict__["get"]["Activity_Embedded"]:
+#             activity_name = activity.get("activity_name", "Unknown Activity")
+#             about_and_tags = activity.get("about_and_tags", "Description not available")
+#             reviews = activity.get("reviews", [])
+#             result_all["activities"][activity_name] = {
+#                 "Description": about_and_tags,
+#                 "People also reviews": (
+#                     reviews if reviews else ["No reviews available"]
+#                 ),
+#             }
+
+#         # Query for Accommodation recommendations
+#         accommodation_response = client.graphql_raw_query(
+#             f"""
+#             {{
+#                 Get {{
+#                     Accommodation_Embedded(
+#                         hybrid: {{
+#                             query: "{query}"
+#                         }},
+#                         limit: 3
+#                     ) {{
+#                         accommodation_name
+#                         about_and_tags
+#                         reviews
+#                         _additional {{
+#                             distance
+#                             rerank(
+#                                 property: "accommodation_name"
+#                                 query: "{query}"
+#                             ) {{
+#                                 score
+#                             }}
+#                         }}
+#                     }}
+#                 }}
+#             }}
+#             """
+#         )
+
+#         for accommodation in accommodation_response.__dict__["get"][
+#             "Accommodation_Embedded"
+#         ]:
+#             accommodation_name = accommodation.get(
+#                 "accommodation_name", "Unknown accommodation"
+#             )
+#             about_and_tags = accommodation.get(
+#                 "about_and_tags", "Description not available"
+#             )
+#             reviews = accommodation.get("reviews", [])
+#             result_all["accommodations"][accommodation_name] = {
+#                 "Description": about_and_tags,
+#                 "People also reviews": (
+#                     reviews if reviews else ["No reviews available"]
+#                 ),
+#             }
+
+#         return make_response(jsonify({"message": result_all}), 200)
+
+#     except weaviate.exceptions.WeaviateGRPCUnavailableError as e:
+#         return make_response(
+#             jsonify({"message": f"Weaviate gRPC connection error: {str(e)}"}), 500
+#         )
+#     except Exception as e:
+#         return make_response(jsonify({"message": str(e)}), 500)
+
+
+def get_recommend(query):
+    result_all = {"activities": {}, "accommodations": {}}
+
+    try:
+        Activityclient = client.collections.get("Activity_Embedded")
+        # Activity Hybrid Search with Rerank
+        activity_response = Activityclient.query.hybrid(
+            query=query,
+            limit=3,
+            rerank=Rerank(prop="activity_name", query=query),
+            return_metadata=MetadataQuery(score=True),
+        )
+        print(activity_response)
+
+        # Process the activity results
+        for a in activity_response.objects:
+            activity = a.properties
+            activity_name = activity.get("activity_name", "Unknown Activity")
+            about_and_tags = activity.get("about_and_tags", "Description not available")
+            reviews = activity.get("reviews", [])
+            # Extract score from rerank if available
+            score = a.metadata.rerank_score
+
+            result_all["activities"][activity_name] = {
+                "Description": about_and_tags,
+                "People also reviews": reviews if reviews else ["No reviews available"],
+                "Score": score,  # Add the score
+            }
+
+        Accommodationclient = client.collections.get("Accommodation_Embedded")
+        # Accommodation Hybrid Search with Rerank
+        accommodation_response = Accommodationclient.query.hybrid(
+            query=query,
+            limit=3,
+            rerank=Rerank(prop="accommodation_name", query=query),
+            return_metadata=MetadataQuery(score=True),
+        )
+
+        # Process the accommodation results
+        for a in accommodation_response.objects:
+            accommodation = a.properties
+            print(accommodation)
+            accommodation_name = accommodation.get(
+                "accommodation_name", "Unknown accommodation"
+            )
+            about_and_tags = accommodation.get(
+                "about_and_tags", "Description not available"
+            )
+            reviews = accommodation.get("reviews", [])
+            # Extract score from rerank if available
+            score = a.metadata.rerank_score
+            # print(accommodation.keys())
+            print(score)
+            result_all["accommodations"][accommodation_name] = {
+                "Description": about_and_tags,
+                "People also reviews": reviews if reviews else ["No reviews available"],
+                "Score": score,  # Add the score
+            }
+
+        # Return the final results
+        return make_response(jsonify({"message": result_all}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+
+
 if __name__ == "__main__":
+    intent_model = Intent_Model()
+    answer_model = Answer_Model()
     app.run(debug=True, host="0.0.0.0")
-    # close the connection only when the app is closed
     client.close()
