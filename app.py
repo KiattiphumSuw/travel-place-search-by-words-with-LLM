@@ -285,11 +285,19 @@ def get_recommend(query):
             # Extract score from rerank if available
             score = a.metadata.rerank_score
 
-            result_all["activities"][activity_name] = {
-                "Description": about_and_tags,
-                "People also reviews": reviews if reviews else ["No reviews available"],
-                "Score": score,  # Add the score
-            }
+            if activity_name in result_all["activities"]:
+                # append reviews
+                result_all["activities"][activity_name]["People also reviews"].append(
+                    reviews
+                )
+            else:
+                result_all["activities"][activity_name] = {
+                    "Description": about_and_tags,
+                    "People also reviews": (
+                        reviews if reviews else ["No reviews available"]
+                    ),
+                    "Score": score,  # Add the score
+                }
 
         Accommodationclient = client.collections.get("Accommodation_Embedded")
         # Accommodation Hybrid Search with Rerank
@@ -315,11 +323,20 @@ def get_recommend(query):
             score = a.metadata.rerank_score
             # print(accommodation.keys())
             print(score)
-            result_all["accommodations"][accommodation_name] = {
-                "Description": about_and_tags,
-                "People also reviews": reviews if reviews else ["No reviews available"],
-                "Score": score,  # Add the score
-            }
+
+            if accommodation_name in result_all["accommodations"]:
+                # append reviews
+                result_all["accommodations"][accommodation_name][
+                    "People also reviews"
+                ].append(reviews)
+            else:
+                result_all["accommodations"][accommodation_name] = {
+                    "Description": about_and_tags,
+                    "People also reviews": (
+                        reviews if reviews else ["No reviews available"]
+                    ),
+                    "Score": score,  # Add the score
+                }
 
         # Return the final results
         return make_response(jsonify({"message": result_all}), 200)
