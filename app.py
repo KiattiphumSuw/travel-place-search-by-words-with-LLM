@@ -162,108 +162,8 @@ def get_answer(query):
         return make_response(jsonify({"message": str(e)}), 500)
 
 
-# def get_recommend(query):
-#     result_all = {"activities": {}, "accommodations": {}}
-
-#     try:
-#         # Query for Activity recommendations
-#         activity_response = client.graphql_raw_query(
-#             f"""
-#             {{
-#                 Get {{
-#                     Activity_Embedded(
-#                         hybrid: {{
-#                             query: "{query}"
-#                         }},
-#                         limit: 3
-#                     ) {{
-#                         activity_name
-#                         about_and_tags
-#                         reviews
-#                         _additional {{
-#                             distance
-#                             rerank(
-#                                 property: "activity_name"
-#                                 query: "{query}"
-#                             ) {{
-#                                 score
-#                             }}
-#                         }}
-#                     }}
-#                 }}
-#             }}
-#             """
-#         )
-
-#         for activity in activity_response.__dict__["get"]["Activity_Embedded"]:
-#             activity_name = activity.get("activity_name", "Unknown Activity")
-#             about_and_tags = activity.get("about_and_tags", "Description not available")
-#             reviews = activity.get("reviews", [])
-#             result_all["activities"][activity_name] = {
-#                 "Description": about_and_tags,
-#                 "People also reviews": (
-#                     reviews if reviews else ["No reviews available"]
-#                 ),
-#             }
-
-#         # Query for Accommodation recommendations
-#         accommodation_response = client.graphql_raw_query(
-#             f"""
-#             {{
-#                 Get {{
-#                     Accommodation_Embedded(
-#                         hybrid: {{
-#                             query: "{query}"
-#                         }},
-#                         limit: 3
-#                     ) {{
-#                         accommodation_name
-#                         about_and_tags
-#                         reviews
-#                         _additional {{
-#                             distance
-#                             rerank(
-#                                 property: "accommodation_name"
-#                                 query: "{query}"
-#                             ) {{
-#                                 score
-#                             }}
-#                         }}
-#                     }}
-#                 }}
-#             }}
-#             """
-#         )
-
-#         for accommodation in accommodation_response.__dict__["get"][
-#             "Accommodation_Embedded"
-#         ]:
-#             accommodation_name = accommodation.get(
-#                 "accommodation_name", "Unknown accommodation"
-#             )
-#             about_and_tags = accommodation.get(
-#                 "about_and_tags", "Description not available"
-#             )
-#             reviews = accommodation.get("reviews", [])
-#             result_all["accommodations"][accommodation_name] = {
-#                 "Description": about_and_tags,
-#                 "People also reviews": (
-#                     reviews if reviews else ["No reviews available"]
-#                 ),
-#             }
-
-#         return make_response(jsonify({"message": result_all}), 200)
-
-#     except weaviate.exceptions.WeaviateGRPCUnavailableError as e:
-#         return make_response(
-#             jsonify({"message": f"Weaviate gRPC connection error: {str(e)}"}), 500
-#         )
-#     except Exception as e:
-#         return make_response(jsonify({"message": str(e)}), 500)
-
-
 def get_recommend(query):
-    result_all = {"activities": {}, "accommodations": {}}
+    result_all = {"activities": {}, "accommodations": {}, "etc": {}}
 
     try:
         Activityclient = client.collections.get("Activity_Embedded")
@@ -274,7 +174,7 @@ def get_recommend(query):
             rerank=Rerank(prop="activity_name", query=query),
             return_metadata=MetadataQuery(score=True),
         )
-        print(activity_response)
+        # print(activity_response)
 
         # Process the activity results
         for a in activity_response.objects:
@@ -311,7 +211,7 @@ def get_recommend(query):
         # Process the accommodation results
         for a in accommodation_response.objects:
             accommodation = a.properties
-            print(accommodation)
+            # print(accommodation)
             accommodation_name = accommodation.get(
                 "accommodation_name", "Unknown accommodation"
             )
@@ -322,7 +222,7 @@ def get_recommend(query):
             # Extract score from rerank if available
             score = a.metadata.rerank_score
             # print(accommodation.keys())
-            print(score)
+            # print(score)
 
             if accommodation_name in result_all["accommodations"]:
                 # append reviews
@@ -337,8 +237,9 @@ def get_recommend(query):
                     ),
                     "Score": score,  # Add the score
                 }
-
-        # Return the final results
+            summarize = chatbot.summarization(result_all["activities"], query).content
+            
+            result_all["etc"][query] = summarize
         return make_response(jsonify({"message": result_all}), 200)
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)
